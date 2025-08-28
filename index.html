@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Episode Player — Archive.org</title>
+  <style>
+    :root{
+      --bg:#0b0c10; --card:#11131a; --soft:#1a1f2b; --ink:#e6e6e6; --muted:#aeb3c2; --accent:#6ee7ff;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Ubuntu,"Helvetica Neue",Arial,sans-serif}
+    header{padding:20px 16px;border-bottom:1px solid #202633;background:linear-gradient(180deg,#0d1117,rgba(13,17,23,0))}
+    header h1{margin:0;font-size:22px;letter-spacing:.3px}
+    header p{margin:4px 0 0;color:var(--muted);font-size:14px}
+    .container{display:grid;grid-template-columns: 320px 1fr;gap:16px;padding:16px;min-height:calc(100vh - 76px)}
+    @media (max-width: 900px){.container{grid-template-columns:1fr}}
+    .sidebar{background:var(--card);border:1px solid #202633;border-radius:16px;overflow:hidden}
+    .sidebar header{background:transparent;border:0;padding:14px 14px 0}
+    .search{padding:0 14px 12px}
+    .search input{width:100%;padding:10px 12px;border-radius:10px;border:1px solid #2a3142;background:#0f1420;color:var(--ink)}
+    .episode-list{max-height:calc(100vh - 220px);overflow:auto;padding:8px}
+    .episode{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+    .episode:hover{background:var(--soft)}
+    .episode.active{border-color:var(--accent);background:rgba(110,231,255,.08)}
+    .ep-title{font-weight:600}
+    .ep-size{color:var(--muted);font-size:12px}
+    .main{display:flex;flex-direction:column;gap:12px}
+    .player{background:var(--card);border:1px solid #202633;border-radius:16px;padding:14px}
+    video{width:100%;height:auto;border-radius:12px;background:#000}
+    .controls{display:flex;align-items:center;gap:10px;margin-top:8px}
+    .controls button, .controls a{background:#192132;color:var(--ink);border:1px solid #25304a;padding:8px 12px;border-radius:10px;cursor:pointer;text-decoration:none;font-weight:600}
+    .controls button:hover, .controls a:hover{filter:brightness(1.05)}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>ATTACK ON SKIBIDI YOUTUBER INDONESIA</h1>
+    <p>Tonton semua episode langsung dari Archive.org dan Youtube.</p>
+  </header>
+
+  <div class="container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <header><h3 style="margin:0 0 10px;font-size:16px">Daftar Episode</h3></header>
+      <div class="search"><input id="search" placeholder="Cari episode… (cth: 03)" /></div>
+      <div id="episodeList" class="episode-list"></div>
+    </aside>
+
+    <!-- Main -->
+    <main class="main">
+      <section class="player">
+        <div class="controls" style="justify-content:space-between">
+          <div><strong id="nowPlaying">Episode 01</strong></div>
+          <div class="controls">
+            <button id="prevBtn" title="Sebelumnya">⟵ Prev</button>
+            <button id="nextBtn" title="Berikutnya">Next ⟶</button>
+            <a id="downloadBtn" href="#" download>Download MP4</a>
+          </div>
+        </div>
+        <video id="video" controls preload="metadata" playsinline></video>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // ====== LIST EPISODES (ISI LINK DI SINI) ======
+    const episodes = [
+      { num: 1, title: "Episode 01", src: "https://archive.org/download/episode01_202508/episode01.mp4" },
+      { num: 2, title: "Episode 02", src: "https://archive.org/download/episode02_202508/episode02.mp4" },
+      { num: 3, title: "Episode 03", src: "https://archive.org/download/episode03_202508/episode03.mp4" },
+      { num: 4, title: "Episode 04", src: "https://archive.org/download/episode04_202508/episode04.mp4" },
+      { num: 5, title: "Episode 05", src: "https://archive.org/download/episode05_202508/episode05.mp4" },
+      { num: 6, title: "Episode 06", src: "https://archive.org/download/episode06_202508/episode06.mp4" },
+      { num: 7, title: "Episode 07", src: "https://archive.org/download/episode07_202508/episode07.mp4" },
+      { num: 8, title: "Episode 08", src: "https://archive.org/download/episode08_202508/episode08.mp4" },
+      { num: 9, title: "Episode 09", src: "https://archive.org/download/episode09_202508/episode09.mp4" },
+      { num: 10, title: "Episode 10", src: "https://archive.org/download/episode10_202508/episode10.mp4" },
+      { num: 11, title: "Episode 11", src: "https://archive.org/download/episode11_202508/episode11.mp4" },
+      { num: 12, title: "Episode 12", src: "https://archive.org/download/episode12_202508/episode12.mp4" },
+      { num: 13, title: "Episode 13", src: "https://archive.org/download/episode13_202508/episode13.mp4" },
+      { num: 14, title: "Episode 14", src: "https://archive.org/download/episode14_202508/episode14.mp4" },
+      { num: 15, title: "Episode 15", src: "https://archive.org/download/episode15_202508/episode15.mp4" }
+    ];
+
+    let current = 1;
+    const listEl = document.getElementById('episodeList');
+    const searchEl = document.getElementById('search');
+    const videoEl = document.getElementById('video');
+    const nowPlayingEl = document.getElementById('nowPlaying');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+
+    function renderList(filter=""){
+      listEl.innerHTML = '';
+      const q = filter.trim().toLowerCase();
+      episodes
+        .filter(ep => ep.title.toLowerCase().includes(q))
+        .forEach(ep => {
+          const item = document.createElement('div');
+          item.className = 'episode' + (ep.num === current ? ' active':'' );
+          item.dataset.num = ep.num;
+          item.innerHTML = `<div class="ep-title">${ep.title}</div><div class="ep-size">.mp4</div>`;
+          item.addEventListener('click', ()=> selectEpisode(ep.num));
+          listEl.appendChild(item);
+        });
+    }
+
+    function selectEpisode(num){
+      current = Math.min(episodes.length, Math.max(1, num));
+      const ep = episodes[current-1];
+      nowPlayingEl.textContent = ep.title;
+      videoEl.src = ep.src;
+      downloadBtn.href = ep.src;
+      document.querySelectorAll('.episode').forEach(el=>{
+        el.classList.toggle('active', Number(el.dataset.num)===current);
+      });
+      location.hash = `#ep${String(current).padStart(2,'0')}`;
+    }
+
+    searchEl.addEventListener('input', e=>renderList(e.target.value));
+    prevBtn.addEventListener('click', ()=> selectEpisode(current-1));
+    nextBtn.addEventListener('click', ()=> selectEpisode(current+1));
+
+    function initFromHash(){
+      const m = location.hash.match(/ep(\d{2})/i);
+      if(m){
+        const n = Number(m[1]);
+        if(n>=1 && n<=episodes.length) current = n;
+      }
+    }
+
+    (function(){
+      initFromHash();
+      renderList();
+      selectEpisode(current);
+    })();
+  </script>
+</body>
+</html>
